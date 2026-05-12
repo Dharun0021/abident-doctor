@@ -16,7 +16,6 @@ class DoctorNavigation {
   static const List<DoctorRoute> sidebarRoutes = [
     DoctorRoute.patients,
     DoctorRoute.treatments,
-    DoctorRoute.notifications,
     DoctorRoute.profile,
     DoctorRoute.settings,
     DoctorRoute.support,

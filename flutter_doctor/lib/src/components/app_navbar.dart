@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../services/doctor_auth_storage.dart';
 import '../services/mock_data.dart';
+import '../services/notification_store.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_decorations.dart';
 import '../styles/app_text_styles.dart';
@@ -33,11 +36,21 @@ class AppNavbar extends StatefulWidget {
 class _AppNavbarState extends State<AppNavbar> {
   String _doctorName = 'Loading...';
   String _specialization = 'Doctor';
+  int _unreadNotifications = 0;
+  late final StreamSubscription<List<NotificationItem>>
+  _notificationSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadDoctorData();
+    _updateUnreadCount(NotificationStore.notifications);
+    _notificationSubscription = NotificationStore.stream.listen((
+      notifications,
+    ) {
+      if (!mounted) return;
+      _updateUnreadCount(notifications);
+    });
   }
 
   Future<void> _loadDoctorData() async {
@@ -51,19 +64,35 @@ class _AppNavbarState extends State<AppNavbar> {
     }
   }
 
+  void _updateUnreadCount(List<NotificationItem> notifications) {
+    setState(() {
+      _unreadNotifications = notifications.where((n) => !n.read).length;
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final repo = MockRepository.instance;
-    final unread = repo.notifications.where((n) => !n.read).length;
     final compact = MediaQuery.sizeOf(context).width < 900;
 
     return SafeArea(
       bottom: false,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 20, vertical: compact ? 10 : 14),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 12 : 20,
+          vertical: compact ? 10 : 14,
+        ),
         decoration: BoxDecoration(
           color: AppColors.cardBackground.withValues(alpha: 0.92),
-          border: Border(bottom: BorderSide(color: AppColors.border.withValues(alpha: 0.6))),
+          border: Border(
+            bottom: BorderSide(color: AppColors.border.withValues(alpha: 0.6)),
+          ),
           boxShadow: AppDecorations.softShadow,
         ),
         child: Row(
@@ -78,7 +107,9 @@ class _AppNavbarState extends State<AppNavbar> {
               flex: compact ? 1 : 0,
               child: Text(
                 widget.title,
-                style: compact ? AppTextStyles.headingSmall : AppTextStyles.headingMedium,
+                style: compact
+                    ? AppTextStyles.headingSmall
+                    : AppTextStyles.headingMedium,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -92,9 +123,15 @@ class _AppNavbarState extends State<AppNavbar> {
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: 'Search patients, charts…',
-                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: AppColors.textSecondary,
+                      ),
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       filled: true,
                       fillColor: AppColors.background,
                       border: OutlineInputBorder(
@@ -124,18 +161,21 @@ class _AppNavbarState extends State<AppNavbar> {
                   icon: const Icon(Icons.notifications_none_rounded),
                   color: AppColors.textPrimary,
                 ),
-                if (unread > 0)
+                if (_unreadNotifications > 0)
                   Positioned(
                     right: 6,
                     top: 6,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.error,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        '$unread',
+                        '$_unreadNotifications',
                         style: AppTextStyles.caption.copyWith(
                           color: Colors.white,
                           fontSize: 9,
@@ -152,15 +192,24 @@ class _AppNavbarState extends State<AppNavbar> {
                 onTap: widget.onProfile,
                 borderRadius: BorderRadius.circular(AppTheme.radiusLg),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   child: Row(
                     children: [
                       CircleAvatar(
                         radius: 22,
                         backgroundColor: AppColors.accentSoft,
                         child: Text(
-                          _doctorName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join(),
-                          style: AppTextStyles.title.copyWith(color: AppColors.primary),
+                          _doctorName
+                              .split(' ')
+                              .map((e) => e.isNotEmpty ? e[0] : '')
+                              .take(2)
+                              .join(),
+                          style: AppTextStyles.title.copyWith(
+                            color: AppColors.primary,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -190,8 +239,15 @@ class _AppNavbarState extends State<AppNavbar> {
                   radius: 18,
                   backgroundColor: AppColors.accentSoft,
                   child: Text(
-                    _doctorName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join(),
-                    style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800),
+                    _doctorName
+                        .split(' ')
+                        .map((e) => e.isNotEmpty ? e[0] : '')
+                        .take(2)
+                        .join(),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 onSelected: (v) {

@@ -42,14 +42,24 @@ class DoctorApiService {
   }) async {
     final fcmToken = await _readFcmToken();
 
+    print('=== DOCTOR LOGIN DEBUG ===');
+    print('Email: ${email.trim()}');
+    print('FCM Token: $fcmToken');
+    print('FCM Token is null: ${fcmToken == null}');
+    print('=========================');
+
+    final requestBody = {
+      'email': email.trim(),
+      'password': password,
+      if (fcmToken != null) 'fcmToken': fcmToken,
+    };
+
+    print('Request Body: ${jsonEncode(requestBody)}');
+
     return http.post(
       Uri.parse(AppConfig.doctorLoginUrl),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': email.trim(),
-        'password': password,
-        if (fcmToken != null) 'fcmToken': fcmToken,
-      }),
+      body: jsonEncode(requestBody),
     );
   }
 
@@ -72,6 +82,23 @@ class DoctorApiService {
         if (email != null) 'email': email.trim(),
         if (specialization != null) 'specialization': specialization.trim(),
         if (password != null && password.isNotEmpty) 'password': password,
+      }),
+    );
+  }
+
+  static Future<http.Response> updateFcmToken({
+    required String fcmToken,
+  }) async {
+    final token = await DoctorAuthStorage.getToken();
+
+    return http.post(
+      Uri.parse(AppConfig.doctorUpdateFcmTokenUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'fcmToken': fcmToken,
       }),
     );
   }
@@ -175,6 +202,103 @@ class DoctorApiService {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
+    );
+  }
+
+  static Future<http.Response> getDoctorBookings() async {
+    final token = await DoctorAuthStorage.getToken();
+    final doctorId = await DoctorAuthStorage.getDoctorId();
+    final uri = Uri.parse(AppConfig.doctorBookingsUrl).replace(
+      queryParameters: {
+        if (doctorId != null && doctorId.isNotEmpty) 'doctorId': doctorId,
+      },
+    );
+
+    return http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+  }
+
+  static Future<http.Response> getDoctorBookingById({
+    required String bookingId,
+  }) async {
+    final token = await DoctorAuthStorage.getToken();
+    final doctorId = await DoctorAuthStorage.getDoctorId();
+    final uri = Uri.parse('${AppConfig.doctorBookingsUrl}/$bookingId').replace(
+      queryParameters: {
+        if (doctorId != null && doctorId.isNotEmpty) 'doctorId': doctorId,
+      },
+    );
+
+    return http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+  }
+
+  static Future<http.Response> getDoctorPatients() async {
+    final token = await DoctorAuthStorage.getToken();
+    final doctorId = await DoctorAuthStorage.getDoctorId();
+    final uri = Uri.parse(AppConfig.doctorPatientsUrl).replace(
+      queryParameters: {
+        if (doctorId != null && doctorId.isNotEmpty) 'doctorId': doctorId,
+      },
+    );
+
+    return http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+  }
+
+  static Future<http.Response> getDoctorPatientById({
+    required String patientId,
+  }) async {
+    final token = await DoctorAuthStorage.getToken();
+    final doctorId = await DoctorAuthStorage.getDoctorId();
+    final uri = Uri.parse(AppConfig.doctorPatientDetailsUrl(patientId)).replace(
+      queryParameters: {
+        if (doctorId != null && doctorId.isNotEmpty) 'doctorId': doctorId,
+      },
+    );
+
+    return http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+  }
+
+  static Future<http.Response> respondToBooking({
+    required String bookingId,
+    required String status,
+    String? newTime,
+  }) async {
+    final token = await DoctorAuthStorage.getToken();
+
+    return http.post(
+      Uri.parse(AppConfig.doctorRespondBookingUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'bookingId': bookingId,
+        'status': status,
+        if (newTime != null) 'newTime': newTime,
+      }),
     );
   }
 }

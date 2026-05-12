@@ -48,6 +48,11 @@ class DoctorAuthStorage {
     return prefs.getString(_doctorEmailKey);
   }
 
+  static Future<String?> getDoctorId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_doctorIdKey);
+  }
+
   static Future<String?> getSpecialization() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_doctorSpecializationKey);

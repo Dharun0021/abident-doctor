@@ -1,6 +1,6 @@
 enum Environment {
   local,
-  // production, // Commented out to force local usage
+  // production,
 }
 
 class EnvironmentConfig {
@@ -25,16 +25,16 @@ class EnvironmentConfig {
     );
   }
 
-  /*
-  factory EnvironmentConfig.production() {
-    return EnvironmentConfig(
-      environment: Environment.production,
-      baseUrl: 'https://abident-backend-1.onrender.com',
-      enableLogging: false,
-      timeoutSeconds: 30,
-    );
-  }
-  */
+  
+  // factory EnvironmentConfig.production() {
+  //   return EnvironmentConfig(
+  //     environment: Environment.production,
+  //    baseUrl: 'https://abident-backend-production.up.railway.app',
+  //     enableLogging: false,
+  //     timeoutSeconds: 30,
+  //   );
+  // }
+  
 
   @override
   String toString() => '$environment - baseUrl: $baseUrl';

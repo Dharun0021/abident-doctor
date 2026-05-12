@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "325024116367",
+    "project_id": "abidant",
+    "storage_bucket": "abidant.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:325024116367:android:00f100f8f166c42c384afa",
+        "android_client_info": {
+          "package_name": "com.abidant.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "325024116367-0oomkih00bl0huum6re422bt6athjiim.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCzh5MokZUiiFgOmcL_navJUtWHUPYXNcI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "325024116367-0oomkih00bl0huum6re422bt6athjiim.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:325024116367:android:b82047c75e1f430c384afa",
+        "android_client_info": {
+          "package_name": "com.abidant.doctor"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "325024116367-0oomkih00bl0huum6re422bt6athjiim.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCzh5MokZUiiFgOmcL_navJUtWHUPYXNcI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "325024116367-0oomkih00bl0huum6re422bt6athjiim.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
