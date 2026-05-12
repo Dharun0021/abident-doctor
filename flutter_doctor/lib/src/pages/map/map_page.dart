@@ -30,20 +30,21 @@ class _MapPageState extends State<MapPage> {
   bool _isLoading = true;
   String? _errorMessage;
 
-  static const LatLng _defaultCenter = LatLng(37.7749, -122.4194); // San Francisco
-  static const double _defaultZoom = 12.0;
+  // Indian location (center of India)
+  static const LatLng _defaultCenter = LatLng(20.5937, 78.9629); // Center of India
+  static const LatLng _indiaMin = LatLng(8.0, 68.0); // Southwest corner of India
+  static const LatLng _indiaMax = LatLng(35.0, 97.0); // Northeast corner of India
+  static const double _defaultZoom = 4.5; // Zoom level to show all of India
 
   @override
   void initState() {
     super.initState();
-    _selectedBookingNotifier.addListener(_onSelectedBookingChanged);
-    _loadBookings();
-  }
-
-  void _onSelectedBookingChanged() {
-    if (mounted) {
-      setState(() {});
-    }
+    // Delay loading to ensure proper initialization
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _loadBookings();
+      }
+    });
   }
 
   Future<void> _loadBookings() async {
@@ -128,19 +129,21 @@ class _MapPageState extends State<MapPage> {
 
         if (location.hasValidCoordinates) {
           final latLng = location.toLatLng()!;
-          final markerId = MarkerId('booking_$i');
+          final markerId = MarkerId('booking_${booking.id ?? i}');
+          final patientName = booking.user?.name ?? 'Patient';
 
           _markers.add(
             Marker(
               markerId: markerId,
               position: latLng,
               infoWindow: InfoWindow(
-                title: booking.user?.name ?? 'Patient',
-                snippet: booking.location.addressText,
+                title: patientName,
+                snippet: '${booking.treatment.type} - ${booking.location.addressText}',
                 onTap: () {
                   try {
                     if (mounted) {
                       _selectedBookingNotifier.value = booking;
+                      _showAppointmentPopup(booking);
                     }
                   } catch (e) {
                     debugPrint('Error in info window tap: $e');
@@ -151,6 +154,7 @@ class _MapPageState extends State<MapPage> {
                 try {
                   if (mounted) {
                     _selectedBookingNotifier.value = booking;
+                    _showAppointmentPopup(booking);
                   }
                 } catch (e) {
                   debugPrint('Error in marker tap: $e');
@@ -161,7 +165,7 @@ class _MapPageState extends State<MapPage> {
 
           _circles.add(
             Circle(
-              circleId: CircleId('circle_$i'),
+              circleId: CircleId('circle_${booking.id ?? i}'),
               center: latLng,
               radius: 500, // 500 meters
               fillColor: AppColors.primary.withValues(alpha: 0.1),
@@ -178,6 +182,15 @@ class _MapPageState extends State<MapPage> {
     } catch (e) {
       debugPrint('Error updating markers: $e');
     }
+  }
+
+  void _showAppointmentPopup(DoctorBooking booking) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildAppointmentBottomSheet(booking),
+    );
   }
 
   void _fitMapToMarkers() {
@@ -207,6 +220,23 @@ class _MapPageState extends State<MapPage> {
       );
     } catch (e) {
       debugPrint('Error fitting map to markers: $e');
+    }
+  }
+
+  void _resetToIndiaView() {
+    try {
+      if (!_mapReady || _mapController == null) return;
+
+      final bounds = LatLngBounds(
+        southwest: _indiaMin,
+        northeast: _indiaMax,
+      );
+
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngBounds(bounds, 100),
+      );
+    } catch (e) {
+      debugPrint('Error resetting to India view: $e');
     }
   }
 
@@ -255,9 +285,34 @@ class _MapPageState extends State<MapPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Appointment Locations', style: AppTextStyles.headingLarge),
-                  const SizedBox(height: 8),
-                  Text('View all appointment locations on the map.', style: AppTextStyles.body),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Appointment Locations', style: AppTextStyles.headingLarge),
+                            const SizedBox(height: 8),
+                            Text('Tap on any location to view appointment details.', style: AppTextStyles.body),
+                          ],
+                        ),
+                      ),
+                      Tooltip(
+                        message: 'Reset to India view',
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.location_on, color: Colors.white),
+                            onPressed: _resetToIndiaView,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -268,309 +323,174 @@ class _MapPageState extends State<MapPage> {
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: contentMaxWidth(context)),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      flex: context.isMobile ? 1 : 3,
-                      child: _isLoading
-                          ? AppCard(
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const CircularProgressIndicator(),
-                                    const SizedBox(height: 16),
-                                    Text('Loading appointments...', style: AppTextStyles.body),
-                                  ],
-                                ),
-                              ),
-                            )
-                          : _errorMessage != null
-                              ? AppCard(
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                                        const SizedBox(height: 16),
-                                        Text(_errorMessage!, style: AppTextStyles.body, textAlign: TextAlign.center),
-                                        const SizedBox(height: 16),
-                                        AppButton(
-                                          label: 'Retry',
-                                          onPressed: _loadBookings,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              : _bookings.isEmpty
-                                  ? AppCard(
-                                      child: Center(
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            const Icon(Icons.location_off, size: 48, color: Colors.grey),
-                                            const SizedBox(height: 16),
-                                            Text('No appointments with locations yet.', style: AppTextStyles.body),
-                                          ],
-                                        ),
-                                      ),
-                                    )
-                                  : AppCard(
-                                      padding: EdgeInsets.zero,
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(20),
-                                        child: GoogleMap(
-                                          onMapCreated: (controller) {
-                                            try {
-                                              _mapController = controller;
-                                              _mapReady = true;
-                                              Future.delayed(const Duration(milliseconds: 500), () {
-                                                try {
-                                                  if (mounted && _bookings.isNotEmpty && _mapController != null) {
-                                                    _fitMapToMarkers();
-                                                  }
-                                                } catch (e) {
-                                                  debugPrint('Error fitting markers after map creation: $e');
-                                                }
-                                              });
-                                            } catch (e) {
-                                              debugPrint('Error in onMapCreated: $e');
-                                            }
-                                          },
-                                          initialCameraPosition: const CameraPosition(
-                                            target: _defaultCenter,
-                                            zoom: _defaultZoom,
-                                          ),
-                                          markers: _markers,
-                                          circles: _circles,
-                                          mapType: MapType.normal,
-                                          zoomGesturesEnabled: true,
-                                          scrollGesturesEnabled: true,
-                                          tiltGesturesEnabled: false,
-                                          rotateGesturesEnabled: false,
-                                        ),
-                                      ),
-                                    ),
-                    ),
-                    if (!context.isMobile) ...[
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 2,
-                        child: AppCard(
+                child: _isLoading
+                    ? AppCard(
+                        child: Center(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text('Appointments on Map', style: AppTextStyles.headingSmall),
-                              const SizedBox(height: 12),
-                              Expanded(
-                                child: _bookings.isEmpty
-                                    ? Center(
-                                        child: Text('No appointments', style: AppTextStyles.caption),
-                                      )
-                                    : ListView.separated(
-                                        itemCount: _bookings.length,
-                                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                                        itemBuilder: (context, i) {
-                                          final booking = _bookings[i];
-                                          return ValueListenableBuilder<DoctorBooking?>(
-                                            valueListenable: _selectedBookingNotifier,
-                                            builder: (context, selectedBooking, _) {
-                                              final isSelected = selectedBooking?.id == booking.id;
-                                              final hasLocation = booking.location.hasValidCoordinates;
-
-                                              return Material(
-                                                color: isSelected ? AppColors.sidebarActive : AppColors.background,
-                                                borderRadius: BorderRadius.circular(14),
-                                                child: InkWell(
-                                                  onTap: hasLocation
-                                                      ? () {
-                                                          try {
-                                                            _selectedBookingNotifier.value = booking;
-                                                            final latLng = booking.location.toLatLng();
-                                                            if (latLng != null && _mapController != null) {
-                                                              _mapController?.animateCamera(
-                                                                CameraUpdate.newCameraPosition(
-                                                                  CameraPosition(target: latLng, zoom: 15),
-                                                                ),
-                                                              );
-                                                            }
-                                                          } catch (e) {
-                                                            debugPrint('Error in list item tap: $e');
-                                                          }
-                                                        }
-                                                      : null,
-                                                  borderRadius: BorderRadius.circular(14),
-                                                  child: Padding(
-                                                    padding: const EdgeInsets.all(12),
-                                                    child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      children: [
-                                                        Row(
-                                                          children: [
-                                                            Expanded(
-                                                              child: Column(
-                                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                                children: [
-                                                                  Text(
-                                                                    booking.user?.name ?? 'Unknown Patient',
-                                                                    style: AppTextStyles.title,
-                                                                    maxLines: 1,
-                                                                    overflow: TextOverflow.ellipsis,
-                                                                  ),
-                                                                  const SizedBox(height: 4),
-                                                                  Text(
-                                                                    DateFormat('MMM dd, yyyy • hh:mm a')
-                                                                        .format(booking.treatment.date),
-                                                                    style: AppTextStyles.caption,
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            ),
-                                                            if (!hasLocation)
-                                                              const Icon(Icons.location_off, size: 16, color: Colors.grey),
-                                                          ],
-                                                        ),
-                                                        const SizedBox(height: 8),
-                                                        if (hasLocation)
-                                                          Row(
-                                                            children: [
-                                                              const Icon(Icons.location_on, size: 14, color: Colors.red),
-                                                              const SizedBox(width: 4),
-                                                              Expanded(
-                                                                child: Text(
-                                                                  '${booking.location.latitude?.toStringAsFixed(4)}, ${booking.location.longitude?.toStringAsFixed(4)}',
-                                                                  style: AppTextStyles.caption,
-                                                                  maxLines: 1,
-                                                                  overflow: TextOverflow.ellipsis,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        if (booking.location.addressText.isNotEmpty)
-                                                          Padding(
-                                                            padding: const EdgeInsets.only(top: 4),
-                                                            child: Text(
-                                                              booking.location.addressText,
-                                                              style: AppTextStyles.caption,
-                                                              maxLines: 1,
-                                                              overflow: TextOverflow.ellipsis,
-                                                            ),
-                                                          ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          );
-                                        },
-                                      ),
-                              ),
-                              ValueListenableBuilder<DoctorBooking?>(
-                                valueListenable: _selectedBookingNotifier,
-                                builder: (context, selectedBooking, _) {
-                                  if (selectedBooking != null) {
-                                    return Column(
-                                      children: [
-                                        const SizedBox(height: 12),
-                                        _buildSelectedBookingDetails(selectedBooking),
-                                      ],
-                                    );
-                                  }
-                                  return const SizedBox.shrink();
-                                },
-                              ),
+                              const CircularProgressIndicator(),
+                              const SizedBox(height: 16),
+                              Text('Loading appointments...', style: AppTextStyles.body),
                             ],
                           ),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
+                      )
+                    : _errorMessage != null
+                        ? AppCard(
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                                  const SizedBox(height: 16),
+                                  Text(_errorMessage!, style: AppTextStyles.body, textAlign: TextAlign.center),
+                                  const SizedBox(height: 16),
+                                  AppButton(
+                                    label: 'Retry',
+                                    onPressed: _loadBookings,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : _bookings.isEmpty
+                            ? AppCard(
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.location_off, size: 48, color: Colors.grey),
+                                      const SizedBox(height: 16),
+                                      Text('No appointments with locations yet.', style: AppTextStyles.body),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : AppCard(
+                                padding: EdgeInsets.zero,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: GoogleMap(
+                                    onMapCreated: (controller) {
+                                      try {
+                                        _mapController = controller;
+                                        _mapReady = true;
+                                        Future.delayed(const Duration(milliseconds: 500), () {
+                                          try {
+                                            if (mounted && _bookings.isNotEmpty && _mapController != null) {
+                                              _fitMapToMarkers();
+                                            }
+                                          } catch (e) {
+                                            debugPrint('Error fitting markers after map creation: $e');
+                                          }
+                                        });
+                                      } catch (e) {
+                                        debugPrint('Error in onMapCreated: $e');
+                                      }
+                                    },
+                                    initialCameraPosition: const CameraPosition(
+                                      target: _defaultCenter,
+                                      zoom: _defaultZoom,
+                                    ),
+                                    markers: _markers,
+                                    circles: _circles,
+                                    mapType: MapType.normal,
+                                    zoomGesturesEnabled: true,
+                                    scrollGesturesEnabled: true,
+                                    tiltGesturesEnabled: false,
+                                    rotateGesturesEnabled: false,
+                                  ),
+                                ),
+                              ),
               ),
             ),
-          ),
-          ValueListenableBuilder<DoctorBooking?>(
-            valueListenable: _selectedBookingNotifier,
-            builder: (context, selectedBooking, _) {
-              if (context.isMobile && selectedBooking != null) {
-                return Column(
-                  children: [
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: contentMaxWidth(context)),
-                        child: _buildSelectedBookingDetails(selectedBooking),
-                      ),
-                    ),
-                  ],
-                );
-              }
-              return const SizedBox.shrink();
-            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSelectedBookingDetails(DoctorBooking booking) {
-    final booking_data = booking;
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Appointment Details', style: AppTextStyles.headingSmall),
-          const SizedBox(height: 12),
-          _buildDetailRow('Patient', booking_data.user?.name ?? 'Unknown'),
-          _buildDetailRow('Type', booking_data.visitType),
-          _buildDetailRow('Treatment', booking_data.treatment.type),
-          _buildDetailRow('Reason', booking_data.treatment.reason),
-          _buildDetailRow('Date & Time', DateFormat('MMM dd, yyyy • hh:mm a').format(booking_data.treatment.date)),
-          _buildDetailRow('Status', booking_data.status),
-          if (booking_data.location.hasValidCoordinates) ...[
-            const SizedBox(height: 12),
-            Text('Location Coordinates', style: AppTextStyles.title),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Latitude: ${booking_data.location.latitude?.toStringAsFixed(6)}', style: AppTextStyles.caption),
-                  const SizedBox(height: 4),
-                  Text('Longitude: ${booking_data.location.longitude?.toStringAsFixed(6)}', style: AppTextStyles.caption),
-                ],
-              ),
-            ),
-          ],
-          if (booking_data.location.addressText.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text('Address', style: AppTextStyles.title),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(booking_data.location.addressText, style: AppTextStyles.caption),
-            ),
-          ],
-          const SizedBox(height: 12),
-          AppButton(
-            label: 'Refresh Map',
-            icon: Icons.refresh,
-            onPressed: _loadBookings,
+  Widget _buildAppointmentBottomSheet(DoctorBooking booking) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.6,
+      maxChildSize: 0.9,
+      builder: (context, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
           ),
-        ],
+        ),
+        child: ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(24),
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Appointment Details', style: AppTextStyles.headingSmall),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildDetailRow('Patient', booking.user?.name ?? 'Unknown'),
+            _buildDetailRow('Type', booking.visitType),
+            _buildDetailRow('Treatment', booking.treatment.type),
+            _buildDetailRow('Reason', booking.treatment.reason),
+            _buildDetailRow('Date & Time', DateFormat('MMM dd, yyyy • hh:mm a').format(booking.treatment.date)),
+            _buildDetailRow('Status', booking.status),
+            if (booking.location.hasValidCoordinates) ...[
+              const SizedBox(height: 16),
+              Text('Location Coordinates', style: AppTextStyles.title),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Latitude: ${booking.location.latitude?.toStringAsFixed(6)}', style: AppTextStyles.caption),
+                    const SizedBox(height: 4),
+                    Text('Longitude: ${booking.location.longitude?.toStringAsFixed(6)}', style: AppTextStyles.caption),
+                  ],
+                ),
+              ),
+            ],
+            if (booking.location.addressText.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text('Address', style: AppTextStyles.title),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(booking.location.addressText, style: AppTextStyles.caption),
+              ),
+            ],
+            const SizedBox(height: 24),
+            AppButton(
+              label: 'View in Appointments',
+              icon: Icons.calendar_today,
+              onPressed: () {
+                Navigator.pop(context);
+                // Navigate to Appointments page
+                // You can use your routing here
+                debugPrint('Navigate to appointments page for booking: ${booking.id}');
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -590,7 +510,6 @@ class _MapPageState extends State<MapPage> {
 
   @override
   void dispose() {
-    _selectedBookingNotifier.removeListener(_onSelectedBookingChanged);
     _selectedBookingNotifier.dispose();
     try {
       _mapController?.dispose();
